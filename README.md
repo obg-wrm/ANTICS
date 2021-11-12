@@ -1,4 +1,7 @@
 # ANTICS
+Advancing Novel imaging Technologies and data analyses in order to understand Interior ocean Carbon Storage.
+
+
 How can we use imaging to improve measurements of organic carbon storage in the ocean?
 
 Herein lies computationally relevant information to the ANTICS project. With state-of-the-art camera systems and the implementation
@@ -7,4 +10,3 @@ size, distribution and composition of organic particles; make measurements of pa
 images of particles into flux data; elucidate how biogeochemical processes (remineralisation, aggregation/disaggregation, and
 zooplankton fragmentation/repackaging) impact flux attenuation.
 
-ANTICS - Advancing Novel imaging Technologies and data analyses in order to understand Interior ocean Carbon Storage.
