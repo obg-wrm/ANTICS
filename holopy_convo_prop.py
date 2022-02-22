@@ -1,3 +1,8 @@
+# The plan is to see if we can edit HoloPy code to allow for different 
+# indices of refraction within LISST-HOLO2 viewing window and sampling volume
+# (ir -> water -> air).
+
+
 # Copyright 2011-2018, Vinothan N. Manoharan, Thomas G. Dimiduk,
 # Rebecca W. Perry, Jerome Fung, Ryan McGorty, Anna Wang, Solomon Barkley,
 # Andrei Korigodski
