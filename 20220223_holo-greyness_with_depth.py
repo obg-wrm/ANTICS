@@ -44,7 +44,7 @@ def hologram_depth(filename):
     # read last 1024 bytes
     file_meta.seek(-1024, 2)
     file_bytes = file_meta.read()
-    # convert bytes to str
+    # convert bytes and return depth
     file_str = file_bytes.decode()
     file_spl = file_str.split()
     depth = file_spl[11]
@@ -53,13 +53,12 @@ def hologram_depth(filename):
 def hologram_greyness(filename):
     # load in the and propogate hologram
     raw_holo = hp.load_image(filename, spacing=4.4, medium_index = 1, illum_wavelen = 0.658)
+    # propagate the hologram
     rec_vol = hp.propagate(raw_holo, array_zstack, cfsp = 3)
+    # sum of hologram slices
     z_sum = np.abs(rec_vol).min(axis=0)
-    grey_str = str(z_sum.mean())
-    grey_dig = grey_str[39:44].zfill(5)
-    grey_mean = float(grey_dig)
-    # grey_mean = float(grey_digits)
-
+    # return the mean of the sum
+    grey_mean = float(str(z_sum.mean())[39:44])
     return grey_mean   
 
 # create an empty file for summary data
@@ -71,8 +70,10 @@ for jlop in range(len(filein)):
     fout2 = filein[jlop].split("\\")
     file_n = fout2[-1][0:-4]
     
-    # read depth from the text file 
+
     depth = hologram_depth(filein[jlop])
+    
+    # if depth is less than 0 then NaN
     if (float(depth) <= 0):
         greyness = np.nan           
     else: 
@@ -108,3 +109,4 @@ plt.show()
 endTime = time.perf_counter()
 runTime = endTime - startTime
 print("The run time of this script is " + str(datetime.timedelta(seconds=runTime))[:7])
+### -- end -- ##
