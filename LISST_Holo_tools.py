@@ -19,6 +19,7 @@ from skimage import io
 from PIL import Image
 from skimage.util import img_as_ubyte
 from skimage.exposure import rescale_intensity
+from math import log
 
 # ---- Functions and Classes ----
 
@@ -35,7 +36,11 @@ class HoloMetadata:
     ----------
     image_fn: str
         The file location of the raw holograms
-    
+    cruise: str
+        Optional. Name of cruise.
+    event: str
+        Optional. Name of event (i.e. deployment number, station).
+
     Returns
     --------
     metadata
@@ -60,7 +65,7 @@ class HoloMetadata:
 
     """
     def __init__(self, image_fn, cruise = None, event = None):
-              # ---- Read meta data ----
+        # ---- Read meta data ----
         # LISST-Holo manual v3 describes the sturcture.
         # The metadata is saved as additional bytes after the image.
         # The first set of 1024 bytes save data as described in the manual using C structs.
@@ -71,15 +76,26 @@ class HoloMetadata:
         block_meta = open(image_fn, 'rb')
         block_meta.seek(START_metadata)
 
-        # first set
+        # first set (byte-style metadata)
         block2_byte = block_meta.read(1024)
 
-        # second set
+        # second set (text-style metadata)
         block3_byte = block_meta.read(1024)
+
+        # Determine LISST version
+        # I am not sure where the list version is encoded in the metadata.
+        # The end of the metadata of the LISST-Holo1 seems to be empty, while for the LISST-Holo2, they contain information.
+        # I am hence using this condition to decide which version it is.
+        serial_number = block2_byte[182:186].decode()
+
+        if all(v == 0 for v in block2_byte[187:]):
+          lisst_version = 1
+        else:
+          lisst_version = 2
 
         # ---- Fill metadata table ---
         # prepare row
-        meta = [None] * 36
+        meta = [None] * 38
 
         # --- General info ---
         meta[0] = cruise
@@ -221,12 +237,49 @@ class HoloMetadata:
         #182-1023
         #Unassigned, set to 0
 
-        # --- Calculate final values from block 2 ---
-        # Depth in m
-        meta[4] = meta[6] * meta[22] + meta[23] 
+        # Serial number of LISST-Holo
+        meta[36] = serial_number
+
+        # Version of LISST-Holo
+        meta[37] = lisst_version
+
+        # --- Calculate final values---
+        # LISST-Holo1: Extract from text chunk ('block3')
+        if lisst_version == 1:
+          # convert bytes to str
+          block3_str = block3_byte.decode()
+
+          # remove empty bytes
+          block3_str = block3_str.strip('\x00')
+
+          # separate into lines
+          block3_str = block3_str.split("\n")
+
+          # extract Depth
+          for l in block3_str:
+            if "Depth" in l:
+              meta[4] = float(re.findall('\d*\.?\d+', l)[0])
+
+            if "Temperature" in l:
+              meta[5] = float(re.findall('\d*\.?\d+', l)[0])
+              break
+
+        # LISST-Holo2:
+        if lisst_version == 2:
+          # Depth (in m):
+          meta[4] = meta[6] * meta[22] + meta[23] 
+
+          # Temperature (in C):  convert counts from ADC to temperature
+          V             = meta[7] * 4.096 / 65535
+          Rt            = (13000.0 * V) / (4.096 - V)
+          LRt           = log(Rt)
+          #Temp_coef_A: meta[24]
+          #Temp_coef_B: meta[25]
+          #Temp_coef_C: meta[26]
+          meta[5]       = ( 1/(meta[24] + meta[25]*LRt + meta[26]* (LRt*LRt*LRt))) - 273.15
 
         # ---- prepare column names ----
-        coln = [None] * 36
+        coln = [None] * 38
 
         # ---- general ----
         coln[0] = "Cruise"
@@ -269,6 +322,8 @@ class HoloMetadata:
         coln[33] = "Aux channel 6"
         coln[34] = "Inter-frame delay msec"
         coln[35] = "Timestamp msec"
+        coln[36] = "Serial number"
+        coln[37] = "LISST-Holo version"
 
         # --- return ---
         self.metadata = meta
