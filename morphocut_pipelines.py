@@ -115,4 +115,4 @@ def make_ecotaxa_folder(folder_name, lat = None, lon = None, date = None, ext = 
             # Progress bar
             Progress(fn)
     
-    p.run()# Requires MorphoCut developer version.
+        p.run()# Requires MorphoCut developer version.
