@@ -23,20 +23,22 @@ from morphocut.str import Format
 from morphocut.contrib.ecotaxa import EcotaxaWriter
 from morphocut.contrib.zooprocess import CalculateZooProcessFeatures
 
-def make_ecotaxa_folder(folder_name, Lat = None, Lon = None, Date = None):
+def make_ecotaxa_folder(folder_name, lat = None, lon = None, date = None, ext = ".png"):
     """
     Make ecotaxa table and pack table and all images into folder (zipped) for direct upload into Ecotaxa.
     
     Parameters
     ----------
     folder_name: str
-        Name to be used for output folder. E.g. "EcoTaxa_Event1"
-    Lat: float
+        Name to be used for output folder. E.g. "Event1".
+    lat: float
         Latitude (with South being negative)
-    Lon: float
+    lon: float
         Longitude (with West being negative)
-    Date: str of format "YYYY-MM-DD"
+    date: str of format "YYYY-MM-DD"
         Date of sampling
+    ext: str
+        Extension of images (e.g. ".bmp", ".png")
     
     Returns
     --------
@@ -45,7 +47,7 @@ def make_ecotaxa_folder(folder_name, Lat = None, Lon = None, Date = None):
     
     Note
     -------
-    I added the "ext" argument as holograms may be saved as .PGM or .pgm. The function is case-insensitive on Windows, but may not be on Linux or Mac, in which case the exact extension can be changed to match the project files.
+    Masks for particles are produced using a threshold of 120. This fixed threshold may not be appropriate for your data.
     """
     
     # prompt for choosing folder
@@ -70,7 +72,7 @@ def make_ecotaxa_folder(folder_name, Lat = None, Lon = None, Date = None):
         with Pipeline() as p:
     
             # [Stream] Find path of .bmp files in input path
-            fn = Find(raw_folder_path, [".bmp"])
+            fn = Find(raw_folder_path, [ext])
     
             # --- metadata table ---
             # Extract file path (Corresponds to `for path in glob(pattern):`)
@@ -81,9 +83,9 @@ def make_ecotaxa_folder(folder_name, Lat = None, Lon = None, Date = None):
             
             thisdict = {
               "id": Format("{object_id}", object_id = basename),
-              "lat": Lat,
-              "lon": Lon,
-              "date": Date,
+              "lat": lat,
+              "lon": lon,
+              "date": date,
             }
     
             # --- image processing ---
