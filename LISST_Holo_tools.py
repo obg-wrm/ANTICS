@@ -3,6 +3,8 @@
 Created on Fri Jul 15 13:09:06 2022
 
 @author: sarigiering
+@contributor: willmajor (obg_wrm)
+
 """
 
 # ---- Required packages ----
@@ -20,6 +22,10 @@ from PIL import Image
 from skimage.util import img_as_ubyte
 from skimage.exposure import rescale_intensity
 from math import log
+import glob
+import shutil
+import ntpath
+
 
 # ---- Functions and Classes ----
 
@@ -606,3 +612,104 @@ def reconstruct_batch(raw_folder_path, n = 51, ext = '*.pgm', make_stack = True,
     
           # save
           io.imsave(z_min_fn, z_min)
+
+
+
+def separate_downcast(raw_folder_path, cruise, event, ext='*.pgm'):
+    """
+    From a profile of LISST-Holo2 .pgm images, separate downcast images by moving them one directory deeper.
+    
+    Parameters
+    ----------
+    raw_folder_path: str
+        The file location of the raw holograms
+    cruise: str
+        Name of cruise. E.g. "DY086"
+    event: str
+        Name of event, deployment or profile. E.g. "034"
+    ext : str
+        Extension of the file to be found. Default: '*.pgm'
+    
+    Returns
+    --------
+    Depth range of downcast profile
+        Saves the depths of the first and last holograms in the downcast file
+    
+    Note
+    -------
+    From Sari: "ext" argument is added as holograms may be saved as .PGM or .pgm. The function is case-insensitive on Windows, but may not be on Linux or Mac, in which case the exact extension can be changed to match the project files.
+    """
+    
+    # set timer for job
+    cycle_time = time.perf_counter()
+    
+    print("####---------------####")
+    
+    # --- make directory if not exist ---
+    output_path = Path(raw_folder_path).joinpath("downcast")
+    if not output_path.exists(): output_path.mkdir()
+    print("Downcast images will be moved to: " + str(output_path))
+
+    # create and sort file list
+    files = Path(raw_folder_path).glob(ext)
+    files = sorted(files)
+    
+    # create empty parameters to append depth and filename information
+    var1 = []
+    var2 = []
+
+    # loop to output filename, depth
+    for f in files:
+        fname = ntpath.basename(f) # extract file name from file path
+        
+        # an error occurred so included a try function to determine which file failed.
+        try:
+            metad = HoloMetadata(f, cruise=None, event=None) # get metadata
+            depth = metad.metadata[4] # get depth from metadata
+        except:
+            print(f)
+            erroneous_path = Path(raw_folder_path).joinpath("erroneous")
+            if not erroneous_path.exists(): erroneous_path.mkdir()
+            shutil.move(f, erroneous_path)
+            shutil.remove(f)
+            depth = None
+            print("Erroneous image", f, "will be moved to: " + str(erroneous_path))
+            continue
+                  
+        # append variables to list
+        var1.append(fname)
+        var2.append(depth)
+        
+    # create a dataframe from the lists
+    df = pd.DataFrame(list(zip(var1, var2)))
+    df["id"] = df.index + 1
+    
+    # find index of maximum depth and remove upcast
+    df2 = df.loc[df[1].idxmax()]
+    maxID = df2['id']
+    df = df.loc[(df['id'] <= maxID)]
+    
+    # remove the dip and filter downcast
+    df['dep_r'] = df[1].round(0) # round depth column
+    df2 = df.loc[(df['dep_r'] == 5.0)] # subset df where rounded depth is specified float (10 metres recommended)
+    df3 = df2.loc[df2['id'].idxmax()] # take bottom row
+    maxID = df3['id'] # highest id from specified depth
+    df = df.loc[(df['id'] >= maxID)] # remove everything before
+    downcast = df[0].tolist() # save downcast filenames to list
+          
+    # move files to dst destination
+    for f in downcast:
+        source = os.path.join(raw_folder_path + f)
+        # include if clause in case the file has been moved to erroneous directory
+        if os.path.exists(source):
+            shutil.move(source, output_path)
+        
+    # test with time stamp
+    duration = timedelta(seconds=time.perf_counter() - cycle_time)
+    t = df.iloc[0]['dep_r']
+    b = df.iloc[-1]['dep_r']
+    
+    print(" ")
+    print("Downcast profile spans from", t, "m to", b, "m")
+    print('Downcast separation run time: ', duration) 
+
