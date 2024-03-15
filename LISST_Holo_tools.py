@@ -250,39 +250,32 @@ class HoloMetadata:
         meta[37] = lisst_version
 
         # --- Calculate final values---
-        # LISST-Holo1: Extract from text chunk ('block3')
+        # LISST-Holo1:
         if lisst_version == 1:
-          # convert bytes to str
-          block3_str = block3_byte.decode()
-
-          # remove empty bytes
-          block3_str = block3_str.strip('\x00')
-
-          # separate into lines
-          block3_str = block3_str.split("\n")
-
-          # extract Depth
-          for l in block3_str:
-            if "Depth" in l:
-              meta[4] = float(re.findall('\d*\.?\d+', l)[0])
-
-            if "Temperature" in l:
-              meta[5] = float(re.findall('\d*\.?\d+', l)[0])
-              break
-
+          # Depth (in m):
+          meta[4] = meta[6] * meta[6] * meta[21] + meta[6] * meta[22] + meta[23]
+              
+          # Temperature (in C):  convert counts from ADC to resistance
+          V             = meta[7] * 0.001
+          Rt            = (10000 * V) / (4.096 - V)
+          
         # LISST-Holo2:
         if lisst_version == 2:
           # Depth (in m):
           meta[4] = meta[6] * meta[22] + meta[23] 
 
-          # Temperature (in C):  convert counts from ADC to temperature
+          # Temperature (in C):  convert counts from ADC to resistance
           V             = meta[7] * 4.096 / 65535
           Rt            = (13000.0 * V) / (4.096 - V)
-          LRt           = log(Rt)
-          #Temp_coef_A: meta[24]
-          #Temp_coef_B: meta[25]
-          #Temp_coef_C: meta[26]
-          meta[5]       = ( 1/(meta[24] + meta[25]*LRt + meta[26]* (LRt*LRt*LRt))) - 273.15
+
+        # Calculate natural log of resistance
+        LRt           = log(Rt)
+        
+        # Approximate the thermistors temperature response curve 
+        Temp = (1/(meta[24] + meta[25]*LRt + meta[26]*(LRt*LRt*LRt))) - 273.15
+        
+        # Tempreature adjustment
+        meta[5] = Temp * meta[27] + meta[28]
 
         # ---- prepare column names ----
         coln = [None] * 38
